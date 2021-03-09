@@ -40,41 +40,56 @@ let persons = [
     }
 ]
 
-app.get('/api/persons', (req, res) => {
-    Person.find({}).then( personsData => {
-        console.log(personsData, typeof(personsData))
-        res.json(personsData)
-    })
-})
-
-const infosivu = (
-    `<div>
-        <p>Phonebook has info for ${persons.length} people</p>
-        <p>${new Date().toUTCString()}</p>
-    </div>`
-)
-
 app.get('/api/info', (req, res) => {
-    res.send(infosivu)
+
+    const amount = Person.length
+
+    res.send(  `<div>
+                <p>Phonebook has info for ${amount} people</p>
+                <p>${new Date().toUTCString()}</p>
+                </div>`
+            )
 })
 
-app.get('/api/persons/:id', (req, res) => {
+app.get('/api/persons', (req, res, next) => {
+    Person
+        .find({})
+        .then( personsData => {
+            if (personsData) {
+                console.log(personsData, typeof(personsData))
+                res.json(personsData)
+            } else {
+                res.status(404).end()
+            }
+        })
+        .catch(error => next(error))
+})
+
+const errorHandler = (error, req, res, next) =>  {
+    console.error(error.message)
+
+    if (error.name === 'CastError') {
+        return res.status(400).send({ error: 'malformatted id' })
+    }
+
+    next(error)
+}
+
+app.use(errorHandler)
+
+app.get('/api/persons/:id', (req, res, next) => {
     console.log('id: ', req.params.id)
-    Person.findById(req.params.id).then(person => {
-        res.json(person)
+    Person
+        .findById(req.params.id)
+        .then(person => {
+            if (person) {
+            res.json(person)
+            } else {
+            res.status(404).end()
+            }
+        })
+        .catch(error => next(error))
     })
-})
-
-/* 
-Vanha ei-tietokantaan perustuvan version yksittäisen resurssin haku 
-app.get('/api/persons/:id', (req, res) => {
-    const id = Number(req.params.id)
-    const person = persons.find(person => person.id === id)
-
-    if (person) res.json(person)
-    else res.status(404).end()
-})
-*/
 
 app.post('/api/persons', (req, res) => {
     const body = req.body
@@ -95,44 +110,13 @@ app.post('/api/persons', (req, res) => {
     })
   })
 
-/*
-Vanha ei-tietokantaan perustuvan version uuden yhteystiedon lisäys
-app.post('/api/persons', (req, res) => {
-    const newPerson = req.body
-    newPerson.id = Math.floor(Math.random()*100000)
-    console.log(newPerson)
-
-    const isSame = persons.map(person=>person.name).includes(newPerson.name)
-    console.log(isSame)
-    if (!newPerson.name && !newPerson.number) {
-        return res.status(400).json({
-            error: 'name and number missing'
+app.delete('/api/persons/:id', (req, res, next) => {
+    Person
+        .findByIdAndRemove(req.params.id)
+        .then(result => {
+            res.status(204).end()
         })
-    } else if (!newPerson.name) {
-        return res.status(400).json({
-            error: 'name missing'
-        })
-    } else if (!newPerson.number) {
-        return res.status(400).json({
-            error: 'number missing'
-        })
-    } else if (persons.map(person=>person.name).includes(newPerson.name)) {
-        console.log('virhe')
-        return res.status(400).json({
-            error: 'name already on list'
-        })
-    }
-    persons = persons.concat(newPerson)
-    console.log(persons)
-    res.json(newPerson)
-})
-*/
-
-app.delete('/api/persons/:id', (req, res) => {
-    const id = Number(req.params.id)
-    console.log('poisto', id)
-    persons = persons.filter(person => person.id !== id)
-    res.status(204).end()
+        .catch(error => next(error))
 })
 
 const PORT = process.env.PORT
