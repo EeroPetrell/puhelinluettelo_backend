@@ -1,7 +1,10 @@
+require('dotenv').config()
 const { response } = require('express')
 const express = require('express')
 const morgan = require('morgan')
 const cors = require('cors')
+const mongoose = require('mongoose')
+const Person = require('./models/person')
 const app = express()
 
 app.use(cors())
@@ -37,26 +40,33 @@ let persons = [
     }
 ]
 
-app.get('/', (req, res) => {
-    res.send('<h1>Hello World!</h1>')
-})
-
 app.get('/api/persons', (req, res) => {
-    res.json(persons)
+    Person.find({}).then( personsData => {
+        console.log(personsData, typeof(personsData))
+        res.json(personsData)
+    })
 })
 
 const infosivu = (
-        `<div>
-            <p>Phonebook has info for ${persons.length} people</p>
-            <p>${new Date().toUTCString()}</p>
-        </div>`
-    )
-
+    `<div>
+        <p>Phonebook has info for ${persons.length} people</p>
+        <p>${new Date().toUTCString()}</p>
+    </div>`
+)
 
 app.get('/api/info', (req, res) => {
     res.send(infosivu)
 })
 
+app.get('/api/persons/:id', (req, res) => {
+    console.log('id: ', req.params.id)
+    Person.findById(req.params.id).then(person => {
+        res.json(person)
+    })
+})
+
+/* 
+Vanha ei-tietokantaan perustuvan version yksittäisen resurssin haku 
 app.get('/api/persons/:id', (req, res) => {
     const id = Number(req.params.id)
     const person = persons.find(person => person.id === id)
@@ -64,7 +74,29 @@ app.get('/api/persons/:id', (req, res) => {
     if (person) res.json(person)
     else res.status(404).end()
 })
+*/
 
+app.post('/api/persons', (req, res) => {
+    const body = req.body
+
+    console.log(body)
+  
+    if (body.name === undefined || body.number === undefined) {
+      return res.status(400).json({ error: 'content missing' })
+    }
+  
+    const person = new Person({
+      name: body.name,
+      number: body.number
+    })
+  
+    person.save().then(savedPerson => {
+      res.json(savedPerson)
+    })
+  })
+
+/*
+Vanha ei-tietokantaan perustuvan version uuden yhteystiedon lisäys
 app.post('/api/persons', (req, res) => {
     const newPerson = req.body
     newPerson.id = Math.floor(Math.random()*100000)
@@ -94,6 +126,7 @@ app.post('/api/persons', (req, res) => {
     console.log(persons)
     res.json(newPerson)
 })
+*/
 
 app.delete('/api/persons/:id', (req, res) => {
     const id = Number(req.params.id)
@@ -102,7 +135,7 @@ app.delete('/api/persons/:id', (req, res) => {
     res.status(204).end()
 })
 
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
 })
